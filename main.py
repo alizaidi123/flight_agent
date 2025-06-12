@@ -47,14 +47,11 @@ def main():
     st.set_page_config(page_title="Flight Booking AI Agent", page_icon="🛫")
     st.title("✈️ AI Flight Booking Assistant")
 
-    if "flight_searched" not in st.session_state:
-        st.session_state.flight_searched = False
+    # Initialize session state
+    if "stage" not in st.session_state:
+        st.session_state.stage = "search"
 
-    if "booking_started" not in st.session_state:
-        st.session_state.booking_started = False
-
-   
-    if not st.session_state.flight_searched:
+    if st.session_state.stage == "search":
         with st.form("flight_search_form"):
             departure = st.text_input("Enter Departure City", "Karachi")
             arrival = st.text_input("Enter Arrival City", "Islamabad")
@@ -67,22 +64,19 @@ def main():
                 st.error("❌ No flights found for the given route.")
                 return
 
-            st.session_state.flight_searched = True
             st.session_state.flights = flights
             st.session_state.departure = departure
             st.session_state.arrival = arrival
-            st.experimental_rerun()
+            st.session_state.stage = "select"
 
-    
-    if st.session_state.flight_searched and not st.session_state.booking_started:
-        flights = st.session_state.flights
+    elif st.session_state.stage == "select":
         st.subheader("Available Flights")
+        flights = st.session_state.flights
 
         summary = ai_summarize_flights(flights)
         if summary:
             st.markdown(summary)
         else:
-            st.warning("⚠️ AI summarization unavailable. Showing raw list:")
             for f in flights:
                 st.write(f"{f['flight_no']} - {f['time']} - Rs {f['price']}")
 
@@ -91,13 +85,11 @@ def main():
         num_tickets = st.number_input("Number of tickets", min_value=1, max_value=10, step=1)
 
         if st.button("Continue to Booking"):
-            st.session_state.booking_started = True
             st.session_state.selected_flight = selected_flight
             st.session_state.num_tickets = num_tickets
-            st.experimental_rerun()
+            st.session_state.stage = "booking"
 
-   
-    if st.session_state.booking_started:
+    elif st.session_state.stage == "booking":
         st.subheader("Passenger Details")
         with st.form("passenger_form"):
             name = st.text_input("Full Name")
@@ -113,6 +105,15 @@ def main():
             **Tickets:** {st.session_state.num_tickets}  
             📧 A confirmation email has been sent to **{email}**
             """)
+
+            st.session_state.stage = "done"
+
+    elif st.session_state.stage == "done":
+        if st.button("Book Another Flight"):
+            for key in ["stage", "flights", "selected_flight", "num_tickets", "departure", "arrival"]:
+                if key in st.session_state:
+                    del st.session_state[key]
+            st.experimental_rerun() if hasattr(st, "experimental_rerun") else None
 
 if __name__ == "__main__":
     main()
