@@ -23,10 +23,8 @@ FLIGHTS = [
     {"flight_no": "PK312", "departure": "Dubai", "arrival": "Islamabad", "time": "07:00 AM", "price": 118000},
 ]
 
-
 def get_flights(departure, arrival):
     return [f for f in FLIGHTS if f["departure"].lower() == departure.lower() and f["arrival"].lower() == arrival.lower()]
-
 
 def ai_summarize_flights(flights):
     flight_descriptions = "\n".join(
@@ -42,29 +40,44 @@ def ai_summarize_flights(flights):
             messages=[{"role": "user", "content": prompt}]
         )
         return response.choices[0].message.content.strip()
-    except Exception as e:
+    except Exception:
         return None
-
 
 def main():
     st.set_page_config(page_title="Flight Booking AI Agent", page_icon="🛫")
     st.title("✈️ AI Flight Booking Assistant")
 
-  
-    with st.form("flight_form"):
-        departure = st.text_input("Enter Departure City", "Karachi")
-        arrival = st.text_input("Enter Arrival City", "Islamabad")
-        date = st.date_input("Travel Date")
-        submitted = st.form_submit_button("Search Flights")
+    if "flight_searched" not in st.session_state:
+        st.session_state.flight_searched = False
 
-    if submitted:
-        flights = get_flights(departure, arrival)
+    if "booking_started" not in st.session_state:
+        st.session_state.booking_started = False
 
-        if not flights:
-            st.error("❌ No flights found for the given route.")
-            return
+   
+    if not st.session_state.flight_searched:
+        with st.form("flight_search_form"):
+            departure = st.text_input("Enter Departure City", "Karachi")
+            arrival = st.text_input("Enter Arrival City", "Islamabad")
+            date = st.date_input("Travel Date")
+            submitted = st.form_submit_button("Search Flights")
 
+        if submitted:
+            flights = get_flights(departure, arrival)
+            if not flights:
+                st.error("❌ No flights found for the given route.")
+                return
+
+            st.session_state.flight_searched = True
+            st.session_state.flights = flights
+            st.session_state.departure = departure
+            st.session_state.arrival = arrival
+            st.experimental_rerun()
+
+    
+    if st.session_state.flight_searched and not st.session_state.booking_started:
+        flights = st.session_state.flights
         st.subheader("Available Flights")
+
         summary = ai_summarize_flights(flights)
         if summary:
             st.markdown(summary)
@@ -77,24 +90,29 @@ def main():
         selected_flight = st.selectbox("Select a flight to book", flight_options)
         num_tickets = st.number_input("Number of tickets", min_value=1, max_value=10, step=1)
 
-       
         if st.button("Continue to Booking"):
-            st.subheader("Passenger Details")
-            with st.form("passenger_form"):
-                name = st.text_input("Full Name")
-                email = st.text_input("Email")
-                phone = st.text_input("Phone Number")
-                confirm = st.form_submit_button("Confirm Booking")
+            st.session_state.booking_started = True
+            st.session_state.selected_flight = selected_flight
+            st.session_state.num_tickets = num_tickets
+            st.experimental_rerun()
 
-            if confirm:
-                st.success("🎉 Booking Confirmed!")
-                st.markdown(f"""
-                **Flight:** {selected_flight}  
-                **Passenger:** {name}  
-                **Tickets:** {num_tickets}  
-                📧 A confirmation email has been sent to **{email}**
-                """)
+   
+    if st.session_state.booking_started:
+        st.subheader("Passenger Details")
+        with st.form("passenger_form"):
+            name = st.text_input("Full Name")
+            email = st.text_input("Email")
+            phone = st.text_input("Phone Number")
+            confirm = st.form_submit_button("Confirm Booking")
 
+        if confirm:
+            st.success("🎉 Booking Confirmed!")
+            st.markdown(f"""
+            **Flight:** {st.session_state.selected_flight}  
+            **Passenger:** {name}  
+            **Tickets:** {st.session_state.num_tickets}  
+            📧 A confirmation email has been sent to **{email}**
+            """)
 
 if __name__ == "__main__":
     main()
